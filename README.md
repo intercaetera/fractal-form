@@ -1,70 +1,118 @@
-# Getting Started with Create React App
+# fractal-form
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An experimental React form library using lenses. Lenses are a concept from functional programming. They are modular data accessors that play nice with immutable data. A big advantage of lens implementation in this library is that they are self-similar, so you can create reusable form components at any level of nesting in your application state.
 
-## Available Scripts
+This library is heavily inspired by André Staltz's [use-profunctor-state](https://github.com/staltz/use-profunctor-state).
 
-In the project directory, you can run:
+See `src/Example.js` for an example implementation.
 
-### `npm start`
+## Installation
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+npm install fractal-form
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Usage
 
-### `npm test`
+### Basic example
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```jsx
+export const Basic = () => {
+  const [submittedValues, setSubmittedValues] = useState({})
+  const {useFormLens, value} = useFractalForm({})
+  const [nameField] = useLensField(useFormLens, 'name')
 
-### `npm run build`
+  const submitForm = () => setSubmittedValues(value)
+  
+  return (
+    <div>
+      <label>Name:
+        <input {...nameField} />
+      </label>
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+      <button onClick={submitForm}>Submit form</button>
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+      <pre>{JSON.stringify(submittedValues, null, 2)}</pre>
+    </div>
+  )
+}
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## API Reference
 
-### `npm run eject`
+#### `useFractalForm`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```javascript
+const initialValues = { name: 'Bob' }
+const {
+  form, value, error, touched,
+  setForm, setValues, setErrors, setTouched,
+  useFormLens, useValuesLens, useErrorsLens, useTouchedLens,
+} = useFractalForm(initialValues)
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Create a form object for a given initial state.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- `form` is the entire form state, an object composed of keys `{ value, error, touched }`.
+- `value` contains the form values. Initially set to `initialValues`.
+- `error` contains the errors. Initially set to `{}`
+- `touched` contains the touched status of the fields. Initally set to `{}`
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- `set*` are functions that set the given object outright. You probably should avoid using those.
 
-## Learn More
+- `use*Lens` are hooks which provide lenses to each one of the properties. They are the same as `useLens` hooks returned from `useLensState` (see below).
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+#### `useLensField`
+```javascript
+const validateName = (_parentValue, name) => name.length < 5 ? "Name too short" : null
 
-### Code Splitting
+const { useFormLens } = useFractalForm({ name: 'Bob' })
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+const [nameField, setNameField, useNameFieldLens] = useLensField(useFormLens, 'name', validateName)
 
-### Analyzing the Bundle Size
+return (
+  <input {...nameField} />
+)
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+This hook creates a lens that focuses on a particular field name from the `value`, `touched`, and `error` object.
 
-### Making a Progressive Web App
+- `nameField` is a utility object containing the `value`, `error`, and `touched` values for the given field name as well as `onChange` (updates the value and validates it) and `onBlur` (sets `touched` to true) callbacks.
+- `setNameField` expects an object of `{ value, error, touched }` for the given field
+- `useNameFieldLens` is a lens for the value, error and touched for the given field. It can be provided as the first argument to another `useLensField`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+#### `useLensState`
 
-### Advanced Configuration
+```javascript
+  const [state, setState, useLens] = useLensState({ name: 'Bob' })
+  const [name, setName] = useLens(s => s.name, (s, a) => ({ ...s, name: a }))
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+  console.log(state) // -> { name: 'Bob' }
+  console.log(name) // -> 'Bob'
 
-### Deployment
+  setName('Alice')
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+  console.log(name) // -> 'Alice'
+  console.log(state) // -> { name: 'Alice' }
 
-### `npm run build` fails to minify
+  setState({ name: 'Charles' })
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+  console.log(name) // -> 'Charles'
+```
+
+This hook is exactly the same as React's `useState` except it adds another element to the array. `useLens` is a hook that takes two functions:
+
+- `view: s => a` takes a full state `s` and returns a partial state `a`
+- `update: (s, a) => t` takes a full state `s` and a new partial state `a` and returns a new full state `t`
+
+The two states are going to be synchronised.
+
+#### `lensForProp`
+
+```javascript
+const [state, setState, useLens] = useLensState({ name: 'Bob' })
+const [name, setName] = useLens(...lensForProp('name'))
+```
+
+A helper which takes a key name returns a pair of functions `[view, update]` for that key name.
